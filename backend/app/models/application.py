@@ -2,7 +2,7 @@
 Application model
 """
 
-from sqlalchemy import Column, String, Text, DateTime, JSON, ForeignKey, Enum, func, Index
+from sqlalchemy import Column, String, Text, DateTime, JSON, ForeignKey, Enum, func, Index, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
