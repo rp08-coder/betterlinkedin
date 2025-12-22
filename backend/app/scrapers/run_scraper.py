@@ -12,6 +12,8 @@ from sqlalchemy import select
 from app.core.database import get_db, engine
 from app.models.job import Job
 from app.scrapers.yc_scraper import YCombinatorScraper
+from app.scrapers.a16z_scraper import A16zScraper
+from app.scrapers.sequoia_scraper import SequoiaScraper
 
 
 async def save_jobs_to_db(jobs_data: list, db: AsyncSession):
@@ -59,42 +61,95 @@ async def save_jobs_to_db(jobs_data: list, db: AsyncSession):
     print(f"Total: {len(jobs_data)}")
 
 
-async def run_yc_scraper():
+async def run_scraper(scraper_name: str, scraper):
     """
-    Run the Y Combinator scraper and save jobs to database
-    """
-    print("=== Starting Y Combinator Job Scraper ===\n")
+    Run a scraper and save jobs to database
 
-    # Initialize scraper
-    scraper = YCombinatorScraper()
+    Args:
+        scraper_name: Name of the VC firm
+        scraper: Scraper instance
+    """
+    print(f"\n{'='*60}")
+    print(f"Starting {scraper_name} Job Scraper")
+    print(f"{'='*60}\n")
 
     # Scrape all jobs
-    print("Scraping jobs from Y Combinator...")
     jobs = await scraper.scrape_all_jobs()
 
-    print(f"\nFound {len(jobs)} jobs")
+    print(f"\nFound {len(jobs)} jobs from {scraper_name}")
 
     if not jobs:
-        print("No jobs found. The scraper may need adjustment for YC's website structure.")
-        return
+        print(f"No jobs found from {scraper_name}. The scraper may need adjustment.")
+        return 0
 
     # Save to database
-    print("\nSaving jobs to database...")
+    print(f"\nSaving {scraper_name} jobs to database...")
     async for db in get_db():
         await save_jobs_to_db(jobs, db)
         break  # Only need one iteration
 
-    print("\n=== Scraping Complete ===")
+    return len(jobs)
+
+
+async def run_yc_scraper():
+    """Run the Y Combinator scraper"""
+    scraper = YCombinatorScraper()
+    return await run_scraper("Y Combinator", scraper)
+
+
+async def run_a16z_scraper():
+    """Run the Andreessen Horowitz scraper"""
+    scraper = A16zScraper()
+    return await run_scraper("Andreessen Horowitz", scraper)
+
+
+async def run_sequoia_scraper():
+    """Run the Sequoia Capital scraper"""
+    scraper = SequoiaScraper()
+    return await run_scraper("Sequoia Capital", scraper)
 
 
 async def main():
     """
     Main function - runs all scrapers
     """
-    # For now, just run YC scraper
-    # Later we can add more: await run_sequoia_scraper(), etc.
+    print("\n" + "="*60)
+    print("JOB SCRAPER - Multi-VC Firm Job Aggregator")
+    print("="*60)
+    print("\nScraping jobs from:")
+    print("  • Y Combinator")
+    print("  • Andreessen Horowitz (a16z)")
+    print("  • Sequoia Capital")
+    print("\nThis may take a few minutes...\n")
 
-    await run_yc_scraper()
+    total_jobs = 0
+
+    # Run all three scrapers
+    try:
+        yc_count = await run_yc_scraper()
+        total_jobs += yc_count
+    except Exception as e:
+        print(f"Error running YC scraper: {e}")
+
+    try:
+        a16z_count = await run_a16z_scraper()
+        total_jobs += a16z_count
+    except Exception as e:
+        print(f"Error running a16z scraper: {e}")
+
+    try:
+        sequoia_count = await run_sequoia_scraper()
+        total_jobs += sequoia_count
+    except Exception as e:
+        print(f"Error running Sequoia scraper: {e}")
+
+    # Final summary
+    print("\n" + "="*60)
+    print("SCRAPING COMPLETE!")
+    print("="*60)
+    print(f"\nTotal jobs scraped: {total_jobs}")
+    print("\nJobs are now available in your database and will appear")
+    print("in the Founded iOS app! 🎉\n")
 
     # Close database connection
     await engine.dispose()
