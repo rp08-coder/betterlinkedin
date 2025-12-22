@@ -117,31 +117,30 @@ async def main():
     print("JOB SCRAPER - Multi-VC Firm Job Aggregator")
     print("="*60)
     print("\nScraping jobs from:")
-    print("  • Y Combinator")
-    print("  • Andreessen Horowitz (a16z)")
-    print("  • Sequoia Capital")
+    print("  • Sequoia Capital (https://jobs.sequoiacap.com)")
     print("\nThis may take a few minutes...\n")
 
     total_jobs = 0
 
-    # Run all three scrapers
-    try:
-        yc_count = await run_yc_scraper()
-        total_jobs += yc_count
-    except Exception as e:
-        print(f"Error running YC scraper: {e}")
-
-    try:
-        a16z_count = await run_a16z_scraper()
-        total_jobs += a16z_count
-    except Exception as e:
-        print(f"Error running a16z scraper: {e}")
-
+    # Run Sequoia scraper (testing new version)
     try:
         sequoia_count = await run_sequoia_scraper()
         total_jobs += sequoia_count
     except Exception as e:
         print(f"Error running Sequoia scraper: {e}")
+
+    # Commenting out other scrapers for now
+    # try:
+    #     yc_count = await run_yc_scraper()
+    #     total_jobs += yc_count
+    # except Exception as e:
+    #     print(f"Error running YC scraper: {e}")
+
+    # try:
+    #     a16z_count = await run_a16z_scraper()
+    #     total_jobs += a16z_count
+    # except Exception as e:
+    #     print(f"Error running a16z scraper: {e}")
 
     # Final summary
     print("\n" + "="*60)

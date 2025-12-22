@@ -1,11 +1,12 @@
 """
-Sequoia Capital job scraper
+Sequoia Capital job scraper - Version 2
 
-Scrapes jobs from Sequoia portfolio companies
+Scrapes jobs from Sequoia's official job board: https://jobs.sequoiacap.com/jobs/
 """
 
 from typing import List, Dict, Any, Optional
 import aiohttp
+from bs4 import BeautifulSoup
 from datetime import datetime
 
 from app.scrapers.base_scraper import BaseScraper
@@ -13,187 +14,178 @@ from app.scrapers.base_scraper import BaseScraper
 
 class SequoiaScraper(BaseScraper):
     """
-    Sequoia Capital portfolio company job scraper
-
-    Scrapes jobs from Sequoia portfolio companies via their career pages
+    Sequoia Capital job scraper using their official job board
     """
 
     def __init__(self):
         super().__init__("Sequoia Capital")
-        self.base_url = "https://www.sequoiacap.com"
-        self.portfolio_url = f"{self.base_url}/companies"
-
-        # Known Sequoia portfolio companies with direct job pages
-        # This is a curated list of top companies - you can expand this
-        self.portfolio_companies = [
-            {"name": "Apple", "jobs_url": "https://jobs.apple.com/en-us/search"},
-            {"name": "Google", "jobs_url": "https://careers.google.com/jobs/results/"},
-            {"name": "WhatsApp", "jobs_url": "https://www.whatsapp.com/join"},
-            {"name": "Instagram", "jobs_url": "https://about.instagram.com/about-us/careers"},
-            {"name": "YouTube", "jobs_url": "https://careers.google.com/jobs/results/?company=YouTube"},
-            {"name": "LinkedIn", "jobs_url": "https://careers.linkedin.com/"},
-            {"name": "Zoom", "jobs_url": "https://careers.zoom.us/"},
-            {"name": "DoorDash", "jobs_url": "https://careers.doordash.com/jobs/"},
-            {"name": "Unity", "jobs_url": "https://careers.unity.com/"},
-            {"name": "Snowflake", "jobs_url": "https://careers.snowflake.com/us/en"},
-            {"name": "MongoDB", "jobs_url": "https://www.mongodb.com/careers"},
-            {"name": "ServiceNow", "jobs_url": "https://careers.servicenow.com/"},
-            {"name": "Klarna", "jobs_url": "https://jobs.lever.co/klarna"},
-            {"name": "Nubank", "jobs_url": "https://nubank.com.br/careers/"},
-            {"name": "Block", "jobs_url": "https://careers.block.xyz/"},
-            {"name": "Toast", "jobs_url": "https://careers.toasttab.com/"},
-            {"name": "Deel", "jobs_url": "https://www.deel.com/careers"},
-            {"name": "Palo Alto Networks", "jobs_url": "https://jobs.paloaltonetworks.com/"},
-        ]
+        self.base_url = "https://jobs.sequoiacap.com"
+        self.jobs_url = f"{self.base_url}/jobs"
 
     async def get_portfolio_companies(self, session: aiohttp.ClientSession) -> List[str]:
         """
-        Get list of job URLs from Sequoia portfolio companies
+        Get list of job URLs from Sequoia's job board
 
-        For now, we use a curated list of known portfolio companies.
-        Future enhancement: scrape the portfolio page dynamically
+        Returns URLs to individual job postings
         """
         job_urls = []
 
-        for company in self.portfolio_companies:
-            job_urls.append(company["jobs_url"])
+        try:
+            # Fetch the main jobs page
+            html = await self.fetch_page(self.jobs_url, session)
+            soup = self.parse_html(html)
 
-        print(f"Found {len(job_urls)} Sequoia portfolio company job pages")
+            # Look for job listing links
+            # The structure will depend on how Sequoia's site is built
+            # Common patterns: links with /jobs/ in href, job cards, etc.
+
+            # Try to find all job links
+            job_links = soup.find_all("a", href=True)
+
+            for link in job_links:
+                href = link.get("href", "")
+
+                # Filter for job detail pages
+                # Look for patterns like /jobs/company-name or /jobs/12345
+                if "/jobs/" in href and href != "/jobs" and href != "/jobs/":
+                    # Make it a full URL if it's relative
+                    if href.startswith("/"):
+                        full_url = f"{self.base_url}{href}"
+                    elif href.startswith("http"):
+                        full_url = href
+                    else:
+                        full_url = f"{self.base_url}/jobs/{href}"
+
+                    # Avoid duplicates
+                    if full_url not in job_urls:
+                        job_urls.append(full_url)
+
+            # Remove duplicates
+            job_urls = list(set(job_urls))
+
+            print(f"Found {len(job_urls)} job URLs from Sequoia Capital")
+
+        except Exception as e:
+            print(f"Error fetching Sequoia job board: {e}")
+
         return job_urls
 
     async def scrape_job(self, url: str, session: aiohttp.ClientSession) -> Optional[Dict[str, Any]]:
         """
-        Scrape job details from Sequoia portfolio company careers page
+        Scrape details from a single Sequoia job posting
 
-        This is a generic scraper - may need company-specific adjustments
+        Returns job data dict matching the Job model schema
         """
         try:
             html = await self.fetch_page(url, session)
             soup = self.parse_html(html)
 
-            # Try to find company name from URL or page
-            company_name = self.extract_company_from_url(url)
+            # Extract company name
+            # Try multiple selectors
+            company_elem = (
+                soup.find("h1") or
+                soup.find("div", class_="company-name") or
+                soup.find("span", class_="company") or
+                soup.find("a", class_="company-link")
+            )
+            company_name = company_elem.text.strip() if company_elem else "Sequoia Portfolio Company"
 
-            # Look for job listings on the page
-            jobs = []
+            # Extract job title
+            # Usually in h1 or h2
+            title_elem = (
+                soup.find("h2") or
+                soup.find("h1", class_="job-title") or
+                soup.find("div", class_="job-title")
+            )
+            job_title = title_elem.text.strip() if title_elem else "Position"
 
-            # Common patterns for job listings
-            job_elements = (
-                soup.find_all("div", class_=lambda x: x and ("job" in x.lower() or "position" in x.lower())) or
-                soup.find_all("li", class_=lambda x: x and "opening" in x.lower()) or
-                soup.find_all("tr", class_=lambda x: x and "job" in x.lower()) or
-                soup.find_all("a", href=lambda x: x and ("/job/" in x or "/position/" in x))
+            # If title contains company name, try to separate them
+            if " - " in job_title:
+                parts = job_title.split(" - ")
+                if len(parts) == 2:
+                    company_name = parts[0].strip()
+                    job_title = parts[1].strip()
+
+            # Extract description
+            # Look for main job description section
+            desc_elem = (
+                soup.find("div", class_="description") or
+                soup.find("div", class_="job-description") or
+                soup.find("div", {"id": "job-description"}) or
+                soup.find("section", class_="content")
             )
 
-            # Limit to avoid overwhelming the database
-            for job_elem in job_elements[:15]:  # First 15 jobs per company
-                try:
-                    # Extract job title
-                    title_elem = (
-                        job_elem.find("h2") or
-                        job_elem.find("h3") or
-                        job_elem.find("h4") or
-                        job_elem.find("a") or
-                        job_elem.find("span", class_=lambda x: x and "title" in x.lower())
-                    )
-                    job_title = title_elem.text.strip() if title_elem else "Position at " + company_name
+            if desc_elem:
+                description = desc_elem.get_text(separator="\n", strip=True)
+            else:
+                # Fallback: get all paragraph text
+                paragraphs = soup.find_all("p")
+                description = "\n\n".join([p.get_text(strip=True) for p in paragraphs[:5]])
 
-                    # Skip if title is empty or too short
-                    if not job_title or len(job_title) < 3:
-                        continue
+            # Extract location
+            location_elem = (
+                soup.find("span", class_="location") or
+                soup.find("div", class_="location") or
+                soup.find("p", class_="location")
+            )
+            location = location_elem.text.strip() if location_elem else "Remote"
 
-                    # Extract job link
-                    link_elem = job_elem.find("a", href=True)
-                    job_url = link_elem.get("href") if link_elem else url
-                    if job_url and not job_url.startswith("http"):
-                        # Handle relative URLs
-                        from urllib.parse import urljoin
-                        job_url = urljoin(url, job_url)
+            # Extract requirements (if in a separate section)
+            req_elem = (
+                soup.find("div", class_="requirements") or
+                soup.find("div", {"id": "requirements"}) or
+                soup.find("section", class_="qualifications")
+            )
+            requirements = req_elem.get_text(separator="\n", strip=True) if req_elem else ""
 
-                    # Extract location if available
-                    location_keywords = ["location", "office", "remote", "city"]
-                    location_elem = None
-                    for keyword in location_keywords:
-                        location_elem = job_elem.find("span", class_=lambda x: x and keyword in x.lower())
-                        if location_elem:
-                            break
+            # Get company logo if available
+            logo_elem = soup.find("img", class_="company-logo") or soup.find("img", alt=company_name)
+            company_logo_url = None
+            if logo_elem and logo_elem.get("src"):
+                logo_url = logo_elem.get("src")
+                if logo_url.startswith("/"):
+                    company_logo_url = f"{self.base_url}{logo_url}"
+                elif logo_url.startswith("http"):
+                    company_logo_url = logo_url
 
-                    location = location_elem.text.strip() if location_elem else "Remote"
+            # Categorize job
+            job_category = self.categorize_job(job_title, description)
 
-                    # Extract description if available
-                    desc_elem = job_elem.find("p") or job_elem.find("div", class_=lambda x: x and "description" in x.lower())
-                    description = desc_elem.text.strip() if desc_elem else f"Position at {company_name}, a portfolio company of Sequoia Capital"
+            # Determine sector based on company/description
+            sector = self.determine_sector(company_name, description)
 
-                    # Categorize the job
-                    job_category = self.categorize_job(job_title, description)
+            # Detect ATS platform
+            application_platform = self.detect_ats_platform(url, html)
 
-                    # Build job data
-                    job_data = {
-                        "source_url": job_url,
-                        "vc_firm": self.vc_firm_name,
-                        "company_name": company_name,
-                        "company_logo_url": None,
-                        "job_title": job_title,
-                        "description": description[:5000],  # Limit description length
-                        "requirements": "",
-                        "job_category": job_category,
-                        "sector": "Technology",
-                        "location": location,
-                        "date_posted": None,
-                        "application_url": job_url,
-                        "application_platform": self.detect_ats_platform(job_url, html),
-                        "custom_questions": None,
-                    }
+            # Application URL - usually same as source URL
+            apply_button = soup.find("a", class_=lambda x: x and "apply" in x.lower()) if soup else None
+            if apply_button and apply_button.get("href"):
+                application_url = apply_button.get("href")
+                if not application_url.startswith("http"):
+                    application_url = f"{self.base_url}{application_url}" if application_url.startswith("/") else url
+            else:
+                application_url = url
 
-                    jobs.append(job_data)
+            # Build job data
+            job_data = {
+                "source_url": url,
+                "vc_firm": self.vc_firm_name,
+                "company_name": company_name,
+                "company_logo_url": company_logo_url,
+                "job_title": job_title,
+                "description": description[:5000],  # Limit to 5000 chars
+                "requirements": requirements[:2000],  # Limit to 2000 chars
+                "job_category": job_category,
+                "sector": sector,
+                "location": location,
+                "date_posted": None,
+                "application_url": application_url,
+                "application_platform": application_platform,
+                "custom_questions": None,
+            }
 
-                except Exception as e:
-                    print(f"Error parsing job element: {e}")
-                    continue
-
-            if jobs:
-                print(f"  → Found {len(jobs)} jobs at {company_name}")
-
-            return jobs if jobs else None
+            return job_data
 
         except Exception as e:
-            print(f"Error scraping Sequoia company page at {url}: {e}")
+            print(f"Error scraping Sequoia job at {url}: {e}")
             return None
-
-    def extract_company_from_url(self, url: str) -> str:
-        """Extract company name from URL"""
-        for company in self.portfolio_companies:
-            if company["jobs_url"] in url or url in company["jobs_url"]:
-                return company["name"]
-
-        # Fallback: extract from domain
-        from urllib.parse import urlparse
-        domain = urlparse(url).netloc
-        # Remove common prefixes/suffixes
-        domain = domain.replace("www.", "").replace("careers.", "").replace("jobs.", "")
-        company = domain.split('.')[0] if domain else "Unknown"
-        return company.title()
-
-    async def scrape_all_jobs(self) -> List[Dict[str, Any]]:
-        """
-        Override scrape_all_jobs to handle company pages instead of individual job pages
-        """
-        all_jobs = []
-
-        async with aiohttp.ClientSession() as session:
-            company_urls = await self.get_portfolio_companies(session)
-
-            for company_url in company_urls:
-                print(f"Scraping jobs from {company_url}...")
-                jobs = await self.scrape_job(company_url, session)
-
-                if jobs:
-                    if isinstance(jobs, list):
-                        all_jobs.extend(jobs)
-                    else:
-                        all_jobs.append(jobs)
-
-                # Rate limiting to be respectful
-                await self.rate_limit()
-
-        return all_jobs
