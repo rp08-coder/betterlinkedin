@@ -5,6 +5,7 @@ Job endpoints
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
+from sqlalchemy.orm import selectinload
 from typing import List
 from datetime import datetime
 
@@ -39,6 +40,7 @@ async def get_job_queue(
     result = await db.execute(
         select(JobQueue)
         .join(Job)
+        .options(selectinload(JobQueue.job))
         .where(
             and_(
                 JobQueue.user_id == current_user.user_id,
