@@ -10,7 +10,7 @@ from typing import Optional
 import os
 
 from sqlalchemy import select, and_
-from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 
 from app.core.database import get_db, engine
 from app.models.application import Application, ApplicationStatus
@@ -18,13 +18,13 @@ from app.models.job import Job
 from app.models.user import User
 
 
-# Initialize OpenAI client
-openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
+# Initialize Claude client
+claude_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
 
 async def generate_cover_letter(user: User, job: Job) -> str:
     """
-    Generate personalized cover letter using OpenAI
+    Generate personalized cover letter using Claude
 
     Args:
         user: User profile
@@ -73,17 +73,16 @@ Instructions:
 
 Cover letter:"""
 
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+        response = await claude_client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1024,
             messages=[
-                {"role": "system", "content": "You are an expert career coach who writes compelling, personalized cover letters."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
-            max_tokens=500
+            temperature=0.7
         )
 
-        cover_letter = response.choices[0].message.content.strip()
+        cover_letter = response.content[0].text.strip()
         return cover_letter
 
     except Exception as e:
