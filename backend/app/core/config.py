@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: Optional[str] = None
 
+    # Anthropic (Claude)
+    ANTHROPIC_API_KEY: Optional[str] = None
+
     # Scraping
     SCRAPING_ENABLED: bool = True
     SCRAPING_INTERVAL_HOURS: int = 12
