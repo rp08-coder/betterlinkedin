@@ -31,9 +31,12 @@ class User(Base):
     resume_url = Column(String, nullable=True)
 
     # Preferences
-    sectors = Column(ARRAY(String), default=list, nullable=False)
-    job_types = Column(ARRAY(String), default=list, nullable=False)
+    sectors = Column(ARRAY(String), default=list, nullable=False)  # e.g., ["FinTech", "HealthTech"]
+    job_types = Column(ARRAY(String), default=list, nullable=False)  # e.g., ["Finance", "BizOps"]
     skills = Column(ARRAY(String), default=list, nullable=False)
+
+    # Experience Background
+    experience_background = Column(ARRAY(String), default=list, nullable=False)  # e.g., ["Investment Banking", "Consulting"]
 
     # Experience
     years_experience = Column(Integer, default=0, nullable=False)
