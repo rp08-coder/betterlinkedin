@@ -5,16 +5,16 @@ Uses Claude to intelligently match user profiles to jobs and categorize jobs
 """
 
 import asyncio
-import os
 from typing import Dict, List, Tuple
 from anthropic import AsyncAnthropic
 
 from app.models.job import Job
 from app.models.user import User
+from app.core.config import settings
 
 
-# Initialize Claude client
-claude_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+# Initialize Claude client with API key from settings
+claude_client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
 async def categorize_job_with_ai(job: Job) -> Dict[str, str]:
