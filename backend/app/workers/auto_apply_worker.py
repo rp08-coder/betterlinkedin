@@ -7,19 +7,19 @@ Monitors applications with status="OUTSTANDING" and submits them automatically
 import asyncio
 from datetime import datetime
 from typing import Optional
-import os
 
 from sqlalchemy import select, and_
 from anthropic import AsyncAnthropic
 
 from app.core.database import get_db, engine
+from app.core.config import settings
 from app.models.application import Application, ApplicationStatus
 from app.models.job import Job
 from app.models.user import User
 
 
-# Initialize Claude client
-claude_client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+# Initialize Claude client with API key from settings
+claude_client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
 async def generate_cover_letter(user: User, job: Job) -> str:
@@ -74,7 +74,7 @@ Instructions:
 Cover letter:"""
 
         response = await claude_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-5-sonnet-20240620",
             max_tokens=1024,
             messages=[
                 {"role": "user", "content": prompt}

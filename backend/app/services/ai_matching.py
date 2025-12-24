@@ -44,7 +44,7 @@ REASONING: [1-2 sentences explaining why]
 """
 
         response = await claude_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-haiku-20240307",
             max_tokens=300,
             messages=[
                 {"role": "user", "content": prompt}
@@ -127,7 +127,7 @@ Respond with ONLY a number between 0.0 and 1.0:
 Score:"""
 
         response = await claude_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-haiku-20240307",
             max_tokens=10,
             messages=[
                 {"role": "user", "content": prompt}
