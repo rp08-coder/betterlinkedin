@@ -112,15 +112,16 @@ Description: {job.description[:1000]}
 Requirements: {job.requirements[:600]}
 
 MATCHING RULES:
-- Investment bankers should ONLY see: Finance, Corporate Development, Strategy, Business Operations, Partnerships roles
-- Consultants should ONLY see: Strategy, Business Operations, GTM Strategy, Product Management, Partnerships roles
-- Software engineers should ONLY see: Engineering, Product Management (technical), Data Science roles
-- NO cross-category matching (e.g., banker to engineering job = 0.0 score)
+- Investment bankers should see: Finance, Corporate Development, Strategy, Business Operations, Partnerships, GTM Strategy, Revenue Operations roles
+- Consultants should see: Strategy, Business Operations, GTM Strategy, Product Management, Partnerships, Revenue Operations roles
+- Software engineers should see: Engineering, Product Management (technical), Data Science roles
+- Be INCLUSIVE - if there's any reasonable fit, give a good score
+- Only give very low scores (< 0.5) for completely mismatched profiles (e.g., banker for pure engineering role)
 
 Respond with ONLY a number between 0.0 and 1.0:
-- 0.0 = Completely wrong profile (e.g., banker for engineering job)
-- 0.3-0.5 = Weak match (some overlap but not ideal)
-- 0.6-0.8 = Good match (profile aligns well)
+- 0.0-0.4 = Wrong profile (e.g., banker for pure engineering job)
+- 0.5-0.6 = Possible match (some transferable skills)
+- 0.7-0.8 = Good match (profile aligns well)
 - 0.9-1.0 = Excellent match (perfect fit)
 
 Score:"""
@@ -215,7 +216,7 @@ async def batch_match_user_to_jobs(user: User, jobs: List[Job], categorizations:
 
     matches = []
     for job, score in zip(jobs, scores):
-        if score >= 0.6:  # Only include good matches
+        if score >= 0.5:  # Include possible matches and above (lowered from 0.6)
             matches.append((job, score))
             print(f"  ✓ {score:.0%} match: {job.job_title} at {job.company_name}")
         else:
