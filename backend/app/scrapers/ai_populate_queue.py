@@ -102,11 +102,11 @@ async def ai_populate_queue():
                 skipped_count += 1
                 continue
 
-            # Add to queue with AI-generated score
+            # Add to queue with AI-generated score (convert to percentage)
             queue_item = JobQueue(
                 user_id=user.user_id,
                 job_id=job.job_id,
-                relevance_score=score,
+                relevance_score=int(score * 100),  # Convert 0.0-1.0 to 0-100
                 shown=False
             )
 
